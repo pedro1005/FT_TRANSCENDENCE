@@ -1,0 +1,11 @@
+# Avoid copyint host dependencies into the image
+node_modules
+
+# Prevents leaking credentials and other sensitive files into the image
+.env
+
+# Avoids stale compiled output
+dist
+
+# Ignore Docker Compose override files
+.git

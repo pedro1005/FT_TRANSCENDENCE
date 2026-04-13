@@ -1,0 +1,15 @@
+@keyframes pulsGlow {
+  0%, 100% {
+    text-shadow: 0 0 20px var(--tron-blue), 0 0 40px var(--tron-blue), 0 0 60px rgba(0, 210, 255, 0.5);
+  }
+  50% {
+    text-shadow: 0 0 30px var(--tron-blue), 0 0 60px var(--tron-blue), 0 0 90px rgba(0, 210, 255, 0.8);
+  }
+}
+
+.glowText {
+  font-weight: 900;
+  color: var(--tron-blue);
+  animation: pulsGlow 3s ease-in-out infinite;
+  letter-spacing: 2px;
+}

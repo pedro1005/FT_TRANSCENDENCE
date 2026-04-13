@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  --tron-blue: #00d2ff;
+  --tron-orange: #ff9d00;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: transparent;
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+@keyframes pulse-glow {
+  from {
+    text-shadow: 0 0 10px var(--tron-blue), 0 0 20px var(--tron-blue);
+  }
+  to {
+    text-shadow: 0 0 20px var(--tron-blue), 0 0 40px var(--tron-blue), 0 0 60px var(--tron-blue);
+  }
+}
+
+.glow-text {
+  animation: pulse-glow 3s infinite alternate;
+}

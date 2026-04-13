@@ -1,0 +1,153 @@
+name: transcendence
+
+services:
+  # This is the actual Vault server. It starts, stays running forever, stores encrypted secrets in vault_data and exposes its API on port 8200 internally. Nothing talks to it until it passes a healthcheck.
+  vault:
+    build:
+      context: ./services/vault
+      dockerfile: Dockerfile
+    image: ft_vault:1.0
+    container_name: ft_vault
+    cap_add:
+      - IPC_LOCK  # prevents secrets from being swapped to disk locking memory pages 
+    environment:
+      VAULT_ADDR: http://127.0.0.1:8200
+    volumes:
+      - vault_data:/vault-data    # where Vault actually stores its encrypted secrets (persists across restarts)
+      - vault_creds:/vault-creds  # bridge volume: vault_init will write credentials here, other services read them
+    expose:
+      - "8200"                    # open port 8200 to the internal Docker network (not to the host)
+    networks:
+      - trans-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8200/v1/sys/health?uninitcode=200&sealedcode=200"] # hits Vault's health API
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+  # This a one-shot setup script. It waits for vault to be healthy, then runs vault-init.sh which: initialises Vault, unseals it, writes the unseal key/root token to vault_creds and loads all our .env secrets into Vault's secret store. Once done, it exits and never runs again.
+  vault_init:
+    image: hashicorp/vault:1.17
+    container_name: ft_vault_init
+    restart: "no"
+    depends_on:
+      vault:
+        condition: service_healthy
+    environment:
+      VAULT_ADDR: http://vault:8200
+      CREDS_DIR: /vault-creds   # where the init script will write credentials
+      # All of these come from your .env file — this is the ONLY place .env secrets enter the system:
+      POSTGRES_USER: ${POSTGRES_USER:-transcendence}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-transcendence}
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      FT_CLIENT_ID: ${FT_CLIENT_ID}
+      FT_CLIENT_SECRET: ${FT_CLIENT_SECRET}
+      FT_REDIRECT_URI: ${FT_REDIRECT_URI}
+    volumes:
+      - vault_creds:/vault-creds  # shared with the vault container — writes credentials here
+      - ./services/vault/init/vault-init.sh:/vault-init.sh:ro
+    entrypoint: ["/bin/sh", "/vault-init.sh"]
+    networks:
+      - trans-network
+  gateway:
+    build:
+      context: ./services/gateway
+      dockerfile: Dockerfile
+      args:
+        DOMAIN_NAME: ${DOMAIN_NAME:-localhost}
+        SSL_COUNTRY: ${SSL_COUNTRY:-US}
+        SSL_STATE: ${SSL_STATE:-State}
+        SSL_LOCALITY: ${SSL_LOCALITY:-Locality}
+        SSL_ORGANIZATION: ${SSL_ORGANIZATION:-Organization}
+        SSL_ORG_UNIT: ${SSL_ORG_UNIT:-Unit}
+    image: nginx:1.0
+    container_name: ft_gateway
+    restart: always
+    ports:
+      - "80:80"      # HTTP (will redirect to HTTPS)
+      - "443:443"    # HTTPS - main entry point
+    depends_on:
+      backend:
+        condition: service_started
+      frontend:
+        condition: service_started
+    networks:
+      - trans-network
+
+  backend:
+    build:
+      context: ./services/backend
+      dockerfile: Dockerfile
+    container_name: ft_backend
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      CORS_ORIGIN: https://localhost,http://localhost
+      VAULT_ADDR: http://vault:8200
+      VAULT_ROLE_ID_FILE: /vault-creds/role_id
+      VAULT_SECRET_ID_FILE: /vault-creds/secret_id
+    ports:
+      - "5555:5555"  # Prisma Studio
+    expose:
+      - "3000"  # Internal port for gateway
+    depends_on:
+      postgres:
+        condition: service_healthy
+      vault_init:
+        condition: service_completed_successfully
+    volumes:
+      - vault_creds:/vault-creds:ro
+    restart: always
+    networks:
+      - trans-network
+
+  postgres:
+    image: postgres:17-alpine
+    container_name: ft_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-transcendence}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-transcendence}
+      POSTGRES_DB: ${POSTGRES_DB:-transcendence}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: always
+    networks:
+      - trans-network
+
+  frontend:
+    build:
+      context: ./services/frontend
+      dockerfile: Dockerfile
+    container_name: ft_frontend
+    environment:
+      NODE_ENV: production
+      # Frontend makes API calls to /api, which nginx proxies to backend
+      NEXT_PUBLIC_API_URL: /api
+      # Internal backend URL for server-side requests
+      BACKEND_URL: http://backend:3000
+      # WebSocket URL (will be proxied through nginx)
+      NEXT_PUBLIC_WS_URL: wss://localhost
+    expose:
+      - "3000"  # Internal port for gateway
+    depends_on:
+      - backend
+    restart: always
+    networks:
+      - trans-network
+
+volumes:
+  postgres_data:
+  vault_data:
+  vault_creds:
+
+networks:
+  trans-network:
+    driver: bridge

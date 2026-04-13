@@ -1,0 +1,102 @@
+generator client {
+	provider = "prisma-client-js"
+}
+
+datasource db {
+	provider = "postgresql"
+}
+
+// User model
+model User {
+	id		String	@id @default(uuid())
+	email		String	@unique
+	username	String	@unique
+	password	String?
+	role		Role	@default(USER)
+	createdAt	DateTime	@default(now())
+
+	// Relations to Match model
+	matchesAsPlayer1 Match[] @relation("Player1")
+	matchesAsPlayer2 Match[] @relation("Player2")
+	matchesWon       Match[] @relation("Winner")
+	achievements UserAchievement[]
+}
+
+// Match model - Based on colleague's database design
+model Match {
+	id		String	@id @default(uuid())
+	createdAt	DateTime	@default(now())
+
+	// Players (from colleague's design)
+	player1Id	String
+	player1		User	@relation("Player1", fields: [player1Id], references: [id], onDelete: Cascade)
+
+	player2Id	String
+	player2		User	@relation("Player2", fields: [player2Id], references: [id], onDelete: Cascade)
+
+	// Scores (colleague's naming: score1, score2)
+	score1		Int
+	score2		Int
+
+	// Winner (from colleague's design)
+	winnerId	String?
+	winner		User?	@relation("Winner", fields: [winnerId], references: [id], onDelete: SetNull)
+
+	// Match metadata (from colleague's design)
+	duration	Int	// Duration in seconds
+
+	// Tournament support (colleague's future-proofing)
+	tournamentId	String?	// Nullable, for future Tournaments feature
+
+	// Status field (minimal addition for Phase 3 integration)
+	status		MatchStatus	@default(COMPLETED)
+	gameMode	GameMode	@default(PVP)
+
+	abandonedBy	String? // userId of who disconnected
+
+	// Indexes for performance
+	@@index([player1Id])
+	@@index([player2Id])
+	@@index([winnerId])
+	@@index([createdAt])
+}
+
+enum Role {
+	USER
+	ADMIN
+}
+
+enum GameMode {
+	PVP
+	AI
+}
+
+enum MatchStatus {
+	IN_PROGRESS  // Match currently being played
+	COMPLETED    // Match finished normally
+	ABANDONED    // Player disconnected mid-game
+}
+
+model Achievement {
+  id          String   @id @default(uuid())
+  key         String   @unique  // e.g. "FIRST_WIN", "WIN_10"
+  name        String
+  description String
+  icon        String   // emoji or icon name
+  createdAt   DateTime @default(now())
+
+  userAchievements UserAchievement[]
+}
+
+model UserAchievement {
+  id            String      @id @default(uuid())
+  userId        String
+  achievementId String
+  unlockedAt    DateTime    @default(now())
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, achievementId])
+  @@index([userId])
+}

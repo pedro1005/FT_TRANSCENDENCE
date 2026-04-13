@@ -1,0 +1,22 @@
+# Vagrant
+.vagrant/
+
+# VirtualBox logs
+*.log
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+.env.local
+
+# Docker
+docker-compose.override.yml
+
+vault_data/
+vault_creds/
+*.vault-token
+unseal_key.txt
+root_token.txt

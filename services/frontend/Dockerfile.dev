@@ -1,0 +1,16 @@
+FROM node:20-bookworm-slim
+
+WORKDIR /app
+
+# Copy dependency files
+COPY package*.json ./
+
+# Install dependencies with retry logic
+RUN npm install --verbose
+
+# Copy application code
+COPY . .
+
+EXPOSE 3000
+
+CMD ["npm", "run", "dev"]
