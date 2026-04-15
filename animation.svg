@@ -18,6 +18,23 @@
   </defs>
 
   <style>
+    svg {
+      animation: forceRedraw 0.01s;
+    }
+
+    @keyframes forceRedraw {
+      from { opacity: 0.99; }
+      to { opacity: 1; }
+    }
+
+    /* 🚀 Performance + consistency */
+    .paddle-left,
+    .paddle-right,
+    .ball {
+      will-change: transform;
+      animation-fill-mode: both;
+    }
+
     @keyframes moveLeft {
       0%, 100% { transform: translate(0px, 30px); }
       25% { transform: translate(0px, 120px); }
