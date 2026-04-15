@@ -1,4 +1,6 @@
-# ft_transcendence — Multiplayer Pong Platform
+<h1 align="center" style="color:#0ff; text-shadow: 0 0 8px #0ff, 0 0 16px #0ff, 0 0 32px #08f, 0 0 64px #08f; letter-spacing:2px;">
+FT_Transcendence — Multiplayer Pong Platform
+</h1>
 
 <p align="center">
   <img src="./animation.svg" width="800" alt="Neon Pong Animation">
